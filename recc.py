@@ -62,7 +62,7 @@ def get_data():
 st.set_page_config(page_title="Erranza AI Travel Companion", layout="wide")
 
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2555/2555028.png", width=100)
-st.sidebar.title("Your Travel Companion 🧳")
+st.sidebar.title("✈️ Explore the World with Erranza AI")
 
 name = st.sidebar.text_input("Your Name")
 selected = st.sidebar.multiselect("Select Your Travel Personality Badges:", badges)
@@ -80,7 +80,7 @@ if get_recs:
     if not selected or not name:
         st.warning("Please enter your name and select at least one badge.")
     else:
-        st.image("https://cdn.dribbble.com/users/220100/screenshots/5452189/travelgirl.gif", width=200)
+        st.image("https://cdn-icons-png.flaticon.com/512/201/201623.png", width=120, caption="🌐 Your AI Travel Guide")
         st.subheader(f"🧭 Welcome, {name}!")
         input_vector = mlb.transform([selected])
         pred = model.predict(input_vector)[0]
