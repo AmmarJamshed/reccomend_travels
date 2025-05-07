@@ -2,13 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import random
-import mysql.connector
 from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.model_selection import train_test_split
 
 # --------------------------
 # Static Data
@@ -28,23 +24,23 @@ archetypes = [
 ]
 
 recommendations = {
-    "Mindful Seeker": ["Bali", "Kyoto", "Kerala"],
-    "Curious Connector": ["Lisbon", "Istanbul", "Buenos Aires"],
-    "Independent Explorer": ["New Zealand", "Iceland", "Scotland"],
-    "Earth Lover": ["Costa Rica", "Norwegian Fjords", "Patagonia"],
-    "Elegant Voyager": ["Paris", "Vienna", "Florence"],
-    "Cultural Alchemist": ["Marrakech", "Lahore", "Hanoi"],
-    "Trailblazing Energizer": ["Peru", "South Africa", "Arizona"],
-    "Heartful Healer": ["Sedona", "Rishikesh", "Ubud"],
-    "Radiant Nomad": ["Thailand", "Mexico", "Portugal"],
-    "Structured Nomad": ["Germany", "Singapore", "Canada"],
-    "Wild Mystic": ["Amazon", "Tibet", "Madagascar"],
-    "Offbeat Nomad": ["Tbilisi", "Uzbekistan", "Bhutan"],
-    "Sensory Wanderer": ["Italy", "Morocco", "Thailand"],
-    "Inner Voyager": ["Nepal", "Sri Lanka", "Greece"],
-    "Time Traveler": ["Rome", "Cairo", "Athens"],
-    "Sacred Pilgrim": ["Mecca", "Varanasi", "Jerusalem"],
-    "Urban Soulwalker": ["New York", "Berlin", "Tokyo"]
+    "Mindful Seeker": [("India", "Rishikesh"), ("Japan", "Kyoto"), ("Indonesia", "Bali")],
+    "Curious Connector": [("Portugal", "Lisbon"), ("Turkey", "Istanbul"), ("Argentina", "Buenos Aires")],
+    "Independent Explorer": [("New Zealand", "Queenstown"), ("Iceland", "Reykjavik"), ("Scotland", "Edinburgh")],
+    "Earth Lover": [("Costa Rica", "Monteverde"), ("Norway", "Fjords"), ("Chile", "Patagonia")],
+    "Elegant Voyager": [("France", "Paris"), ("Austria", "Vienna"), ("Italy", "Florence")],
+    "Cultural Alchemist": [("Morocco", "Marrakech"), ("Pakistan", "Lahore"), ("Vietnam", "Hanoi")],
+    "Trailblazing Energizer": [("Peru", "Cusco"), ("South Africa", "Cape Town"), ("USA", "Arizona")],
+    "Heartful Healer": [("USA", "Sedona"), ("India", "Rishikesh"), ("Indonesia", "Ubud")],
+    "Radiant Nomad": [("Thailand", "Chiang Mai"), ("Mexico", "Tulum"), ("Portugal", "Porto")],
+    "Structured Nomad": [("Germany", "Berlin"), ("Singapore", "Singapore"), ("Canada", "Toronto")],
+    "Wild Mystic": [("Brazil", "Amazon"), ("China", "Tibet"), ("Madagascar", "Antananarivo")],
+    "Offbeat Nomad": [("Georgia", "Tbilisi"), ("Uzbekistan", "Samarkand"), ("Bhutan", "Thimphu")],
+    "Sensory Wanderer": [("Italy", "Rome"), ("Morocco", "Fez"), ("Thailand", "Bangkok")],
+    "Inner Voyager": [("Nepal", "Kathmandu"), ("Sri Lanka", "Kandy"), ("Greece", "Santorini")],
+    "Time Traveler": [("Italy", "Rome"), ("Egypt", "Cairo"), ("Greece", "Athens")],
+    "Sacred Pilgrim": [("Saudi Arabia", "Mecca"), ("India", "Varanasi"), ("Israel", "Jerusalem")],
+    "Urban Soulwalker": [("USA", "New York"), ("Germany", "Berlin"), ("Japan", "Tokyo")]
 }
 
 # --------------------------
@@ -54,61 +50,47 @@ def generate_user():
     return random.sample(badges, random.randint(3, 7))
 
 def get_data():
-    # Normally you'd use SQL here
     df = pd.DataFrame({
         "badges": [generate_user() for _ in range(200)],
         "archetype": [random.choice(archetypes) for _ in range(200)]
     })
     return df
 
-def train_models(X, y):
-    models = {
-        "Logistic Regression": LogisticRegression(max_iter=1000),
-        "Random Forest": RandomForestClassifier(),
-        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=3)
-    }
-    for name, model in models.items():
-        model.fit(X, y)
-    return models
-
 # --------------------------
-# Streamlit UI
+# UI + Logic
 # --------------------------
-st.set_page_config(page_title="Travel Archetype Engine", layout="wide")
-st.title("🌍 Erranza Travel Archetype Finder")
-st.image("https://images.unsplash.com/photo-1507525428034-b723cf961d3e", use_column_width=True)
+st.set_page_config(page_title="Erranza AI Travel Companion", layout="wide")
 
-# Load or generate data
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2555/2555028.png", width=100)
+st.sidebar.title("Your Travel Companion 🧳")
+
+name = st.sidebar.text_input("Your Name")
+selected = st.sidebar.multiselect("Select Your Travel Personality Badges:", badges)
+get_recs = st.sidebar.button("✨ Get Recommendations")
+
 df = get_data()
 mlb = MultiLabelBinarizer()
 X = mlb.fit_transform(df["badges"])
 y = df["archetype"]
 
-# Train Models
-models = train_models(X, y)
+model = RandomForestClassifier()
+model.fit(X, y)
 
-# Sidebar
-model_choice = st.sidebar.selectbox("Select Model", list(models.keys()))
-st.sidebar.markdown("Trained on 200 synthetic users.")
-st.sidebar.markdown("Using cosine similarity to suggest similar users.")
-
-# User Input
-selected = st.multiselect("Select badges that describe you:", badges)
-
-if st.button("🔮 Get Recommendations"):
-    if not selected:
-        st.warning("Please select at least one badge.")
+if get_recs:
+    if not selected or not name:
+        st.warning("Please enter your name and select at least one badge.")
     else:
+        st.image("https://cdn.dribbble.com/users/220100/screenshots/5452189/travelgirl.gif", width=200)
+        st.subheader(f"🧭 Welcome, {name}!")
         input_vector = mlb.transform([selected])
-        selected_model = models[model_choice]
-        pred = selected_model.predict(input_vector)[0]
+        pred = model.predict(input_vector)[0]
         st.success(f"🎯 Your Travel Archetype: **{pred}**")
 
         # Recommendations
         st.markdown("### ✈️ Suggested Destinations:")
         recs = recommendations.get(pred, [])
-        for r in recs:
-            st.markdown(f"- {r}")
+        for country, city in recs:
+            st.markdown(f"- 🌍 **{country}**, ✈️ _{city}_")
 
         # Similarity-based matches
         st.markdown("### 🔍 Most Similar Users:")
@@ -118,8 +100,7 @@ if st.button("🔮 Get Recommendations"):
         for i in top_indices:
             badges_similar = ", ".join(df.iloc[i]["badges"])
             archetype_similar = df.iloc[i]["archetype"]
-            st.markdown(f"**User {i+1}:** {archetype_similar} | Badges: _{badges_similar}_")
+            st.markdown(f"**User {i+1}**: {archetype_similar} | _{badges_similar}_")
 
-# Footer
-st.markdown("---")
-st.markdown("Built by [Ammar Jamshed](https://linkedin.com/in/ammarjamshed)")
+        st.markdown("---")
+        st.caption("Built For Erranza.ai")
