@@ -1,5 +1,6 @@
 streamlit
 pandas
-scikit-learn
 numpy
-mysql-connector-python
+scikit-learn
+supabase
+python-dotenv
