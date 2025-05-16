@@ -5,6 +5,15 @@ import random
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics.pairwise import cosine_similarity
+from supabase import create_client, Client
+import datetime
+
+# --------------------------
+# Supabase Setup (via Streamlit Secrets)
+# --------------------------
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --------------------------
 # Static Data
@@ -44,7 +53,7 @@ recommendations = {
 }
 
 # --------------------------
-# Data Handling
+# Data Generation
 # --------------------------
 def generate_user():
     return random.sample(badges, random.randint(3, 7))
@@ -57,10 +66,9 @@ def get_data():
     return df
 
 # --------------------------
-# UI + Logic
+# Streamlit UI
 # --------------------------
 st.set_page_config(page_title="Erranza AI Travel Companion", layout="wide")
-
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2555/2555028.png", width=100)
 st.sidebar.title("✈️ Explore the World with Erranza AI")
 
@@ -68,11 +76,11 @@ name = st.sidebar.text_input("Your Name")
 selected = st.sidebar.multiselect("Select Your Travel Personality Badges:", badges)
 get_recs = st.sidebar.button("✨ Get Recommendations")
 
+# Train model on generated data
 df = get_data()
 mlb = MultiLabelBinarizer()
 X = mlb.fit_transform(df["badges"])
 y = df["archetype"]
-
 model = RandomForestClassifier()
 model.fit(X, y)
 
@@ -86,21 +94,30 @@ if get_recs:
         pred = model.predict(input_vector)[0]
         st.success(f"🎯 Your Travel Archetype: **{pred}**")
 
+        # Log to Supabase
+        timestamp = datetime.datetime.utcnow().isoformat()
+        session_data = {
+            "user_name": name,
+            "timestamp": timestamp,
+            "selected_badges": selected,
+            "assigned_archetype": pred
+        }
+        supabase.table("WizardSessions").insert(session_data).execute()
+
         # Recommendations
         st.markdown("### ✈️ Suggested Destinations:")
         recs = recommendations.get(pred, [])
         for country, city in recs:
             st.markdown(f"- 🌍 **{country}**, ✈️ _{city}_")
 
-        # Similarity-based matches
+        # Similarity Matching
         st.markdown("### 🔍 Most Similar Users:")
         sim_scores = cosine_similarity(input_vector, X).flatten()
         top_indices = np.argsort(sim_scores)[-3:][::-1]
-
         for i in top_indices:
             badges_similar = ", ".join(df.iloc[i]["badges"])
             archetype_similar = df.iloc[i]["archetype"]
             st.markdown(f"**User {i+1}**: {archetype_similar} | _{badges_similar}_")
 
         st.markdown("---")
-        st.caption("Built For Erranza.ai")
+        st.caption("Built for Erranza.ai")
