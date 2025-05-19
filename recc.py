@@ -46,6 +46,32 @@ recommendations = {
 }
 
 # --------------------------
+# User Authentication System
+# --------------------------
+user_db_file = "users.csv"
+
+def load_users():
+    if os.path.exists(user_db_file):
+        return pd.read_csv(user_db_file)
+    else:
+        return pd.DataFrame(columns=["username", "email", "password"])
+
+def save_user(username, email, password):
+    users = load_users()
+    if username in users["username"].values:
+        return False
+    new_user = pd.DataFrame([[username, email, password]], columns=["username", "email", "password"])
+    new_user.to_csv(user_db_file, mode='a', header=not os.path.exists(user_db_file), index=False)
+    return True
+
+def authenticate(username, password):
+    users = load_users()
+    user_row = users[users["username"] == username]
+    if not user_row.empty and user_row.iloc[0]["password"] == password:
+        return True
+    return False
+
+# --------------------------
 # Generate Training Data
 # --------------------------
 def generate_user():
@@ -77,11 +103,43 @@ st.set_page_config(page_title="Erranza AI Travel Companion", layout="wide")
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2555/2555028.png", width=100)
 st.sidebar.title("✈️ Explore the World with Erranza AI")
 
-name = st.sidebar.text_input("Your Name")
-selected = st.sidebar.multiselect("Select Your Travel Personality Badges:", badges)
-get_recs = st.sidebar.button("✨ Get Recommendations")
+# Authentication
+st.sidebar.markdown("## 👤 Account Access")
+auth_mode = st.sidebar.radio("Select Mode", ["Login", "Register"])
+username = st.sidebar.text_input("Username")
+email = st.sidebar.text_input("Email") if auth_mode == "Register" else ""
+password = st.sidebar.text_input("Password", type="password")
 
-# Train model on generated data
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user = ""
+
+if auth_mode == "Login":
+    if st.sidebar.button("🔓 Login"):
+        if authenticate(username, password):
+            st.session_state.logged_in = True
+            st.session_state.user = username
+            st.success(f"Welcome back, {username}!")
+        else:
+            st.error("Invalid credentials. Try again.")
+elif auth_mode == "Register":
+    if st.sidebar.button("📝 Register"):
+        if save_user(username, email, password):
+            st.success("Account created! You can now log in.")
+        else:
+            st.warning("Username already exists.")
+
+# Logged-in user view
+if st.session_state.logged_in:
+    name = st.session_state.user
+    selected = st.sidebar.multiselect("Select Your Travel Personality Badges:", badges)
+    get_recs = st.sidebar.button("✨ Get Recommendations")
+else:
+    st.sidebar.info("Please login or register to use the recommendation system.")
+    selected = []
+    get_recs = False
+
+# ML Model
 df = get_data()
 mlb = MultiLabelBinarizer()
 X = mlb.fit_transform(df["badges"])
@@ -89,9 +147,9 @@ y = df["archetype"]
 model = RandomForestClassifier()
 model.fit(X, y)
 
-if get_recs:
-    if not selected or not name:
-        st.warning("Please enter your name and select at least one badge.")
+if get_recs and name:
+    if not selected:
+        st.warning("Please select at least one badge.")
     else:
         st.image("https://cdn-icons-png.flaticon.com/512/201/201623.png", width=120, caption="🌐 Your AI Travel Guide")
         st.subheader(f"🧭 Welcome, {name}!")
