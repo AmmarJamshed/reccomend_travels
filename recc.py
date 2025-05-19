@@ -95,19 +95,22 @@ if get_recs:
         pred = model.predict(input_vector)[0]
         st.success(f"🎯 Your Travel Archetype: **{pred}**")
 
-        # ✅ Insert into Supabase with safe format
+        # ✅ Cleaned session data: all fields as strings
         timestamp = datetime.datetime.utcnow().isoformat()
         session_data = {
-            "user_name": name,
-            "timestamp": timestamp,
-            "selected_badges": json.dumps(selected),  # safely stored as a JSON string
-            "assigned_archetype": pred
+            "user_name": str(name),
+            "timestamp": str(timestamp),
+            "selected_badges": ", ".join(selected),  # comma-separated
+            "assigned_archetype": str(pred)
         }
 
+        # ✅ Log to Supabase
         try:
             supabase.table("WizardSessions").insert(session_data).execute()
+            st.success("✅ Session logged successfully!")
         except Exception as e:
-            st.error(f"❌ Failed to log your session: {e}")
+            st.error("❌ Failed to log your session.")
+            st.code(str(e))
 
         # Recommendations
         st.markdown("### ✈️ Suggested Destinations:")
