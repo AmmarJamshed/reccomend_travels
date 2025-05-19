@@ -1,7 +1,8 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import numpy as np
 import random
+import json
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics.pairwise import cosine_similarity
@@ -94,15 +95,19 @@ if get_recs:
         pred = model.predict(input_vector)[0]
         st.success(f"🎯 Your Travel Archetype: **{pred}**")
 
-        # Log to Supabase
+        # ✅ Insert into Supabase with safe format
         timestamp = datetime.datetime.utcnow().isoformat()
         session_data = {
             "user_name": name,
             "timestamp": timestamp,
-            "selected_badges": selected,
+            "selected_badges": json.dumps(selected),  # safely stored as a JSON string
             "assigned_archetype": pred
         }
-        supabase.table("WizardSessions").insert(session_data).execute()
+
+        try:
+            supabase.table("WizardSessions").insert(session_data).execute()
+        except Exception as e:
+            st.error(f"❌ Failed to log your session: {e}")
 
         # Recommendations
         st.markdown("### ✈️ Suggested Destinations:")
