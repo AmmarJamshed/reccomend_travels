@@ -2,19 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import random
-import json
+import os
+import datetime
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics.pairwise import cosine_similarity
-from supabase import create_client, Client
-import datetime
-
-# --------------------------
-# Supabase Setup (via Streamlit Secrets)
-# --------------------------
-SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --------------------------
 # Static Data
@@ -54,7 +46,7 @@ recommendations = {
 }
 
 # --------------------------
-# Data Generation
+# Generate Training Data
 # --------------------------
 def generate_user():
     return random.sample(badges, random.randint(3, 7))
@@ -65,6 +57,18 @@ def get_data():
         "archetype": [random.choice(archetypes) for _ in range(200)]
     })
     return df
+
+# --------------------------
+# Save to CSV
+# --------------------------
+def append_to_csv(data, file_path="soulprint_log.csv"):
+    columns = ["user_name", "timestamp", "selected_badges", "assigned_archetype"]
+    df_new = pd.DataFrame([data], columns=columns)
+
+    if os.path.exists(file_path):
+        df_new.to_csv(file_path, mode='a', header=False, index=False)
+    else:
+        df_new.to_csv(file_path, mode='w', header=True, index=False)
 
 # --------------------------
 # Streamlit UI
@@ -95,22 +99,15 @@ if get_recs:
         pred = model.predict(input_vector)[0]
         st.success(f"🎯 Your Travel Archetype: **{pred}**")
 
-        # ✅ Cleaned session data: all fields as strings
+        # Save session to CSV
         timestamp = datetime.datetime.utcnow().isoformat()
-        session_data = {
-            "user_name": str(name),
-            "timestamp": str(timestamp),
-            "selected_badges": ", ".join(selected),  # comma-separated
-            "assigned_archetype": str(pred)
+        session_row = {
+            "user_name": name,
+            "timestamp": timestamp,
+            "selected_badges": ", ".join(selected),
+            "assigned_archetype": pred
         }
-
-        # ✅ Log to Supabase
-        try:
-            supabase.table("WizardSessions").insert(session_data).execute()
-            st.success("✅ Session logged successfully!")
-        except Exception as e:
-            st.error("❌ Failed to log your session.")
-            st.code(str(e))
+        append_to_csv(session_row)
 
         # Recommendations
         st.markdown("### ✈️ Suggested Destinations:")
